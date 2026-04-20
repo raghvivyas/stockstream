@@ -5,7 +5,6 @@ import com.stockstream.config.AppProperties;
 import com.stockstream.entity.SentimentEntity;
 import com.stockstream.repository.CandleRepository;
 import com.stockstream.repository.SentimentRepository;
-import com.stockstream.dto.SentimentDto;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -65,7 +64,7 @@ class SentimentServiceTest {
         when(sentimentRepository.findTopBySymbolOrderByAnalyzedAtDesc("TCS"))
                 .thenReturn(Optional.of(entity));
 
-        SentimentDto dto = service.getLatest("TCS");
+        SentimentEntity dto = service.getLatest("TCS");
 
         assertThat(dto).isNotNull();
         assertThat(dto.getSentiment()).isEqualTo("BULLISH");

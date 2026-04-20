@@ -1,0 +1,17 @@
+{
+  "AlarmName": "StockStream-Kafka-ConsumerLag",
+  "AlarmDescription": "Triggers when Kafka consumer lag exceeds 1000 messages on market-ticks topic",
+  "MetricName": "SumOffsetLag",
+  "Namespace": "AWS/Kafka",
+  "Statistic": "Sum",
+  "Dimensions": [
+    { "Name": "ConsumerGroup", "Value": "stockstream-group" },
+    { "Name": "Topic", "Value": "market-ticks" }
+  ],
+  "Period": 60,
+  "EvaluationPeriods": 3,
+  "Threshold": 1000,
+  "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+  "TreatMissingData": "notBreaching",
+  "AlarmActions": ["arn:aws:sns:ap-south-1:ACCOUNT_ID:stockstream-alerts"]
+}

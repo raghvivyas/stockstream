@@ -1,0 +1,46 @@
+{
+  "family": "stockstream",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::ACCOUNT_ID:role/stockstreamTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "stockstream-app",
+      "image": "ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/stockstream:latest",
+      "essential": true,
+      "portMappings": [
+        { "containerPort": 8080, "protocol": "tcp" }
+      ],
+      "environment": [
+        { "name": "TICK_INTERVAL_MS", "value": "500" },
+        { "name": "OPENAI_MODEL",     "value": "gpt-3.5-turbo" }
+      ],
+      "secrets": [
+        { "name": "DB_HOST",        "valueFrom": "arn:aws:ssm:ap-south-1:ACCOUNT_ID:parameter/stockstream/DB_HOST" },
+        { "name": "DB_PASSWORD",    "valueFrom": "arn:aws:ssm:ap-south-1:ACCOUNT_ID:parameter/stockstream/DB_PASSWORD" },
+        { "name": "REDIS_HOST",     "valueFrom": "arn:aws:ssm:ap-south-1:ACCOUNT_ID:parameter/stockstream/REDIS_HOST" },
+        { "name": "KAFKA_BOOTSTRAP_SERVERS", "valueFrom": "arn:aws:ssm:ap-south-1:ACCOUNT_ID:parameter/stockstream/KAFKA_BOOTSTRAP" },
+        { "name": "JWT_SECRET",     "valueFrom": "arn:aws:ssm:ap-south-1:ACCOUNT_ID:parameter/stockstream/JWT_SECRET" },
+        { "name": "OPENAI_API_KEY", "valueFrom": "arn:aws:ssm:ap-south-1:ACCOUNT_ID:parameter/stockstream/OPENAI_API_KEY" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/stockstream",
+          "awslogs-region": "ap-south-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    }
+  ]
+}

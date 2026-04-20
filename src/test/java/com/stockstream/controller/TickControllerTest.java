@@ -24,19 +24,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(
     value = TickController.class,
-    excludeAutoConfiguration = SecurityAutoConfiguration.class   // ← bypass the security filter chain entirely
+    excludeAutoConfiguration = SecurityAutoConfiguration.class
 )
 class TickControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
-    // Controller direct dependencies
     @MockBean private RedisTickCacheService redisCache;
     @MockBean private MockTickGeneratorService generator;
-
-    // Beans referenced by SecurityConfig / JwtAuthFilter — must be mocked
-    // so Spring doesn't try to instantiate the real ones during context build
     @MockBean private JwtAuthFilter jwtAuthFilter;
     @MockBean private UserDetailsServiceImpl userDetailsService;
     @MockBean private JwtTokenProvider jwtTokenProvider;

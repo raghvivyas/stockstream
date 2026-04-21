@@ -1,64 +1,69 @@
 package com.stockstream.controller;
 
-import com.stockstream.config.AppProperties;
+import com.stockstream.model.ApiResponse;
 import com.stockstream.model.Tick;
-import com.stockstream.security.JwtAuthFilter;
-import com.stockstream.security.JwtTokenProvider;
-import com.stockstream.security.UserDetailsServiceImpl;
 import com.stockstream.service.MockTickGeneratorService;
 import com.stockstream.service.RedisTickCacheService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.test.web.servlet.MockMvc;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.http.ResponseEntity;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(
-    value = TickController.class,
-    excludeAutoConfiguration = SecurityAutoConfiguration.class
-)
+/**
+ * Pure Mockito unit test for TickController.
+ * No Spring context, no Kafka, no Redis — zero infrastructure dependencies.
+ */
 class TickControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+    @Mock
+    private RedisTickCacheService redisCache;
 
-    @MockBean private RedisTickCacheService redisCache;
-    @MockBean private MockTickGeneratorService generator;
-    @MockBean private JwtAuthFilter jwtAuthFilter;
-    @MockBean private UserDetailsServiceImpl userDetailsService;
-    @MockBean private JwtTokenProvider jwtTokenProvider;
-    @MockBean private AppProperties appProperties;
+    @Mock
+    private MockTickGeneratorService generator;
+
+    @InjectMocks
+    private TickController controller;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+    }
 
     @Test
-    void getSymbols_returnsOkWithList() throws Exception {
+    void getSymbols_returnsListFromGenerator() {
         when(generator.getSymbols()).thenReturn(Arrays.asList("RELIANCE", "TCS", "INFY"));
 
-        mockMvc.perform(get("/api/ticks/symbols"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data[0]").value("RELIANCE"));
+        ResponseEntity<ApiResponse<List<String>>> response = controller.getSymbols();
+
+        assertThat(response.getStatusCodeValue()).isEqualTo(200);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().isSuccess()).isTrue();
+        assertThat(response.getBody().getData()).containsExactly("RELIANCE", "TCS", "INFY");
     }
 
     @Test
-    void getLatestTick_whenCacheEmpty_returnsError() throws Exception {
+    void getLatestTick_whenCacheEmpty_returnsErrorResponse() {
         when(redisCache.getLatestTick("RELIANCE")).thenReturn(null);
 
-        mockMvc.perform(get("/api/ticks/RELIANCE/latest"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(false));
+        ResponseEntity<ApiResponse<Tick>> response = controller.getLatestTick("RELIANCE");
+
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().isSuccess()).isFalse();
     }
 
     @Test
-    void getLatestTick_whenExists_returnsTick() throws Exception {
+    void getLatestTick_whenTickExists_returnsSuccessResponse() {
         Tick tick = Tick.builder()
                 .symbol("RELIANCE")
                 .price(new BigDecimal("2855.50"))
@@ -67,9 +72,35 @@ class TickControllerTest {
                 .build();
         when(redisCache.getLatestTick("RELIANCE")).thenReturn(tick);
 
-        mockMvc.perform(get("/api/ticks/RELIANCE/latest"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.symbol").value("RELIANCE"));
+        ResponseEntity<ApiResponse<Tick>> response = controller.getLatestTick("RELIANCE");
+
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().isSuccess()).isTrue();
+        assertThat(response.getBody().getData().getSymbol()).isEqualTo("RELIANCE");
+        assertThat(response.getBody().getData().getPrice()).isEqualByComparingTo("2855.50");
+    }
+
+    @Test
+    void getRecentTicks_returnsListFromCache() {
+        Tick t1 = Tick.builder().symbol("TCS").price(new BigDecimal("3540.00"))
+                .volume(1000L).timestamp(Instant.now()).build();
+        Tick t2 = Tick.builder().symbol("TCS").price(new BigDecimal("3542.00"))
+                .volume(1200L).timestamp(Instant.now()).build();
+        when(redisCache.getRecentTicks("TCS")).thenReturn(Arrays.asList(t1, t2));
+
+        ResponseEntity<ApiResponse<List<Tick>>> response = controller.getRecentTicks("TCS");
+
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().isSuccess()).isTrue();
+        assertThat(response.getBody().getData()).hasSize(2);
+    }
+
+    @Test
+    void getRecentTicks_whenEmpty_returnsEmptyList() {
+        when(redisCache.getRecentTicks("WIPRO")).thenReturn(Collections.emptyList());
+
+        ResponseEntity<ApiResponse<List<Tick>>> response = controller.getRecentTicks("WIPRO");
+
+        assertThat(response.getBody().getData()).isEmpty();
     }
 }

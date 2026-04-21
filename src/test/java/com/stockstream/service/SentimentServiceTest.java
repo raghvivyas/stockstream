@@ -21,19 +21,23 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+/**
+ * Pure Mockito unit test for SentimentService.
+ * No Spring context, no network, no database.
+ */
 class SentimentServiceTest {
 
-    @Mock private AppProperties props;
-    @Mock private CandleRepository candleRepository;
+    @Mock private AppProperties       props;
+    @Mock private CandleRepository    candleRepository;
     @Mock private SentimentRepository sentimentRepository;
-    @Mock private RestTemplate restTemplate;
+    @Mock private RestTemplate        restTemplate;
 
     private SentimentService service;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        when(props.getOpenaiApiKey()).thenReturn("");  // no AI key → mock mode
+        when(props.getOpenaiApiKey()).thenReturn("");
         when(props.getSymbols()).thenReturn(Collections.singletonList("RELIANCE"));
         service = new SentimentService(props, candleRepository, sentimentRepository,
                 restTemplate, new ObjectMapper());
